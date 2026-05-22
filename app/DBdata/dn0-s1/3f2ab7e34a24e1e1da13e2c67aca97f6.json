@@ -1,0 +1,7 @@
+{
+  "key": "raft-master-test",
+  "value": {
+    "master": "dn0-s2",
+    "createdAfterElection": true
+  }
+}

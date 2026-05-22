@@ -36,6 +36,21 @@ router.post("/prepare", (req, res) => {
       );
     }
 
+    const serverId = getServerId(req);
+    const exists = fsCrud.pairExists(key, serverId);
+
+    if (operation === "create" && exists) {
+      return res.status(409).json(
+        fail("ePREPARE_CREATE_CONFLICT", "Key already exists on participant")
+      );
+    }
+
+    if ((operation === "update" || operation === "delete") && !exists) {
+      return res.status(404).json(
+        fail("ePREPARE_KEY_NOT_FOUND", "Key not found on participant")
+      );
+    }
+
     transactionStore.saveTransaction(transactionId, {
       operation,
       key,

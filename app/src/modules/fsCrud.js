@@ -22,6 +22,16 @@ function getFilePathByKey(key, serverId) {
   };
 }
 
+function pairExists(key, serverId) {
+  if (key === undefined || key === null) {
+    return false;
+  }
+
+  const { filePath } = getFilePathByKey(key, serverId);
+
+  return fs.existsSync(filePath);
+}
+
 function validateKeyValue(key, value) {
   const validTypes = ["string", "number", "object"];
 
@@ -155,9 +165,49 @@ function deletePair(key, serverId) {
   };
 }
 
+function listPairs(serverId) {
+  const dbDataDir = getDbDataDir(serverId);
+
+  const files = fs.readdirSync(dbDataDir).filter(
+    file => file.endsWith(".json")
+  );
+
+  return files.map(file => {
+    const filePath = path.join(dbDataDir, file);
+    const rawData = fs.readFileSync(filePath, "utf-8");
+    const tuple = JSON.parse(rawData);
+
+    return {
+      DB_key: file.replace(".json", ""),
+      tuple
+    };
+  });
+}
+
+function overwritePair(key, value, serverId) {
+  validateKeyValue(key, value);
+
+  const { hashedKey, filePath } = getFilePathByKey(key, serverId);
+
+  const tuple = {
+    key,
+    value
+  };
+
+  fs.writeFileSync(filePath, JSON.stringify(tuple, null, 2), "utf-8");
+
+  return {
+    DB_key: hashedKey,
+    tuple
+  };
+}
+
 module.exports = {
   createPair,
   readPair,
   updatePair,
-  deletePair
+  deletePair,
+  pairExists,
+  listPairs,
+  overwritePair
 };

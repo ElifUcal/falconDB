@@ -9,6 +9,8 @@ const commonRoutes = require("./routes/common.routes");
 const dbRoutes = require("./routes/db.routes");
 const rpRoutes = require("./routes/rp.routes");
 const internalRoutes = require("./routes/internal.routes");
+const electionRoutes = require("./routes/election.routes");
+const maintenanceRoutes = require("./routes/maintenance.routes");
 
 const app = express();
 
@@ -42,6 +44,8 @@ app.use("/", commonRoutes.router);
 app.use("/db", dbRoutes);
 app.use("/", rpRoutes);
 app.use("/internal", internalRoutes);
+app.use("/election", electionRoutes);
+app.use("/maintenance", maintenanceRoutes);
 
 app.use((req, res) => {
   res.status(404).json(

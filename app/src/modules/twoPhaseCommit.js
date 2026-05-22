@@ -77,6 +77,16 @@ async function executeTwoPhaseCommit({ req, operation, key, value }) {
     participants: otherServers.map(s => s.id)
   });
 
+  const coordinatorExists = fsCrud.pairExists(key, serverId);
+
+  if (operation === "create" && coordinatorExists) {
+    throw new Error("Key already exists on coordinator");
+  }
+
+  if ((operation === "update" || operation === "delete") && !coordinatorExists) {
+    throw new Error("Key not found on coordinator");
+  }
+
   try {
     // Phase 1: Prepare
     for (const server of otherServers) {
