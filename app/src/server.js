@@ -7,6 +7,8 @@ const { fail } = require("./modules/response");
 
 const commonRoutes = require("./routes/common.routes");
 const dbRoutes = require("./routes/db.routes");
+const rpRoutes = require("./routes/rp.routes");
+const internalRoutes = require("./routes/internal.routes");
 
 const app = express();
 
@@ -38,6 +40,8 @@ if (currentServer.type === "RP") {
 
 app.use("/", commonRoutes.router);
 app.use("/db", dbRoutes);
+app.use("/", rpRoutes);
+app.use("/internal", internalRoutes);
 
 app.use((req, res) => {
   res.status(404).json(

@@ -2,18 +2,20 @@ const fs = require("fs");
 const path = require("path");
 const md5 = require("md5");
 
-const dbDataDir = path.join(__dirname, "../../DBdata");
+function getDbDataDir(serverId = "default") {
+  const dbDataDir = path.join(__dirname, "../../DBdata", serverId);
 
-/*
-key alıyor
-↓
-key’in md5 hash’ini çıkarıyor
-↓
-/app/DBdata içine JSON dosyası oluşturuyor
+  if (!fs.existsSync(dbDataDir)) {
+    fs.mkdirSync(dbDataDir, { recursive: true });
+  }
 
- */
-function getFilePathByKey(key) {
+  return dbDataDir;
+}
+
+function getFilePathByKey(key, serverId) {
   const hashedKey = md5(String(key));
+  const dbDataDir = getDbDataDir(serverId);
+
   return {
     hashedKey,
     filePath: path.join(dbDataDir, `${hashedKey}.json`)
@@ -44,10 +46,10 @@ function validateKeyValue(key, value) {
   }
 }
 
-function createPair(key, value) {
+function createPair(key, value, serverId) {
   validateKeyValue(key, value);
 
-  const { hashedKey, filePath } = getFilePathByKey(key);
+  const { hashedKey, filePath } = getFilePathByKey(key, serverId);
 
   if (fs.existsSync(filePath)) {
     throw new Error("Key already exists");
@@ -66,12 +68,12 @@ function createPair(key, value) {
   };
 }
 
-function readPair(key) {
+function readPair(key, serverId) {
   if (key === undefined || key === null) {
     throw new Error("Key is required");
   }
 
-  const { hashedKey, filePath } = getFilePathByKey(key);
+  const { hashedKey, filePath } = getFilePathByKey(key, serverId);
 
   if (!fs.existsSync(filePath)) {
     throw new Error("Key not found");
@@ -86,10 +88,10 @@ function readPair(key) {
   };
 }
 
-function updatePair(key, value) {
+function updatePair(key, value, serverId) {
   validateKeyValue(key, value);
 
-  const { hashedKey, filePath } = getFilePathByKey(key);
+  const { hashedKey, filePath } = getFilePathByKey(key, serverId);
 
   if (!fs.existsSync(filePath)) {
     throw new Error("Key not found");
@@ -134,12 +136,12 @@ function updatePair(key, value) {
   };
 }
 
-function deletePair(key) {
+function deletePair(key, serverId) {
   if (key === undefined || key === null) {
     throw new Error("Key is required");
   }
 
-  const { hashedKey, filePath } = getFilePathByKey(key);
+  const { hashedKey, filePath } = getFilePathByKey(key, serverId);
 
   if (!fs.existsSync(filePath)) {
     throw new Error("Key not found");

@@ -2,13 +2,13 @@
   "name": "falcondb",
   "version": "1.0.0",
   "main": "index.js",
- "scripts": {
-  "start": "cross-env SERVER_ID=rp-0 node app/src/server.js",
-  "start:rp": "cross-env SERVER_ID=rp-0 node app/src/server.js",
-  "start:dn0s1": "cross-env SERVER_ID=dn0-s1 node app/src/server.js",
-  "start:dn0s2": "cross-env SERVER_ID=dn0-s2 node app/src/server.js",
-  "start:dn0s3": "cross-env SERVER_ID=dn0-s3 node app/src/server.js"
-},
+  "scripts": {
+    "start": "cross-env SERVER_ID=rp-0 node app/src/server.js",
+    "start:rp": "cross-env SERVER_ID=rp-0 node app/src/server.js",
+    "start:dn0s1": "cross-env SERVER_ID=dn0-s1 node app/src/server.js",
+    "start:dn0s2": "cross-env SERVER_ID=dn0-s2 node app/src/server.js",
+    "start:dn0s3": "cross-env SERVER_ID=dn0-s3 node app/src/server.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

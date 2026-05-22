@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const fsCrud = require("../modules/fsCrud");
+const { executeTwoPhaseCommit } = require("../modules/twoPhaseCommit");
 const { success, fail } = require("../modules/response");
 const logger = require("../modules/logger");
 const commonRoutes = require("./common.routes");
@@ -15,6 +16,14 @@ function isDN(req) {
   return req.app.locals.currentServer.type === "DN";
 }
 
+function getCurrentServer(req) {
+  return req.app.locals.currentServer;
+}
+
+function getCurrentServerId(req) {
+  return req.app.locals.currentServer.id;
+}
+
 async function handleRpForwarding(req, res) {
   try {
     const result = await forwardDbRequest(req, req.app.locals.config);
@@ -25,7 +34,7 @@ async function handleRpForwarding(req, res) {
       master: result.master
     });
 
-    res.json(result.responseData);
+    return res.json(result.responseData);
   } catch (err) {
     const dnStatus = err.response?.status;
     const dnData = err.response?.data;
@@ -41,12 +50,17 @@ async function handleRpForwarding(req, res) {
       return res.status(dnStatus || 502).json(dnData);
     }
 
-    res.status(502).json(
+    return res.status(502).json(
       fail("eRPFORWARD001", err.message)
     );
   }
 }
 
+/**
+ * CREATE
+ * RP ise isteği DN master'a forward eder.
+ * DN ise 2 Phase Commit başlatır.
+ */
 router.post("/c", async (req, res) => {
   if (isRP(req)) {
     return handleRpForwarding(req, res);
@@ -60,33 +74,56 @@ router.post("/c", async (req, res) => {
 
   try {
     const { key, value } = req.body;
+    const currentServer = getCurrentServer(req);
+    const serverId = getCurrentServerId(req);
 
-    const result = fsCrud.createPair(key, value);
+    const twoPcResult = await executeTwoPhaseCommit({
+      req,
+      operation: "create",
+      key,
+      value
+    });
+
+    const result = twoPcResult.result;
 
     commonRoutes.stats.create++;
 
-    logger.info("DN create operation completed", {
-      serverId: req.app.locals.currentServer.id,
+    logger.info("DN create operation completed with 2PC", {
+      serverId,
       key,
-      DB_key: result.DB_key
+      DB_key: result.DB_key,
+      transactionId: twoPcResult.transactionId
     });
 
-    res.json(success({
-      ...result,
-      DN_id: req.app.locals.currentServer.dnId
-    }));
+    return res.json(
+      success({
+        ...result,
+        DN_id: currentServer.dnId,
+        transaction: {
+          id: twoPcResult.transactionId,
+          coordinator: twoPcResult.coordinator,
+          participants: twoPcResult.participants
+        }
+      })
+    );
   } catch (err) {
     logger.error("DN create operation failed", {
-      serverId: req.app.locals.currentServer.id,
+      serverId: getCurrentServerId(req),
       message: err.message
     });
 
-    res.status(400).json(
+    return res.status(400).json(
       fail("eDBCREATE001", err.message)
     );
   }
 });
 
+/**
+ * READ
+ * RP ise isteği DN master'a forward eder.
+ * DN ise sadece kendi local DB klasöründen okur.
+ * READ için 2PC yok.
+ */
 router.get("/r", async (req, res) => {
   if (isRP(req)) {
     return handleRpForwarding(req, res);
@@ -100,33 +137,42 @@ router.get("/r", async (req, res) => {
 
   try {
     const { key } = req.query;
+    const currentServer = getCurrentServer(req);
+    const serverId = getCurrentServerId(req);
 
-    const result = fsCrud.readPair(key);
+    const result = fsCrud.readPair(key, serverId);
 
     commonRoutes.stats.read++;
 
     logger.info("DN read operation completed", {
-      serverId: req.app.locals.currentServer.id,
+      serverId,
       key,
       DB_key: result.DB_key
     });
 
-    res.json(success({
-      ...result,
-      DN_id: req.app.locals.currentServer.dnId
-    }));
+    return res.json(
+      success({
+        ...result,
+        DN_id: currentServer.dnId
+      })
+    );
   } catch (err) {
     logger.error("DN read operation failed", {
-      serverId: req.app.locals.currentServer.id,
+      serverId: getCurrentServerId(req),
       message: err.message
     });
 
-    res.status(400).json(
+    return res.status(400).json(
       fail("eDBREAD001", err.message)
     );
   }
 });
 
+/**
+ * UPDATE
+ * RP ise isteği DN master'a forward eder.
+ * DN ise 2 Phase Commit başlatır.
+ */
 router.post("/u", async (req, res) => {
   if (isRP(req)) {
     return handleRpForwarding(req, res);
@@ -140,33 +186,55 @@ router.post("/u", async (req, res) => {
 
   try {
     const { key, value } = req.body;
+    const currentServer = getCurrentServer(req);
+    const serverId = getCurrentServerId(req);
 
-    const result = fsCrud.updatePair(key, value);
+    const twoPcResult = await executeTwoPhaseCommit({
+      req,
+      operation: "update",
+      key,
+      value
+    });
+
+    const result = twoPcResult.result;
 
     commonRoutes.stats.update++;
 
-    logger.info("DN update operation completed", {
-      serverId: req.app.locals.currentServer.id,
+    logger.info("DN update operation completed with 2PC", {
+      serverId,
       key,
-      DB_key: result.DB_key
+      DB_key: result.DB_key,
+      transactionId: twoPcResult.transactionId
     });
 
-    res.json(success({
-      ...result,
-      DN_id: req.app.locals.currentServer.dnId
-    }));
+    return res.json(
+      success({
+        ...result,
+        DN_id: currentServer.dnId,
+        transaction: {
+          id: twoPcResult.transactionId,
+          coordinator: twoPcResult.coordinator,
+          participants: twoPcResult.participants
+        }
+      })
+    );
   } catch (err) {
     logger.error("DN update operation failed", {
-      serverId: req.app.locals.currentServer.id,
+      serverId: getCurrentServerId(req),
       message: err.message
     });
 
-    res.status(400).json(
+    return res.status(400).json(
       fail("eDBUPDATE001", err.message)
     );
   }
 });
 
+/**
+ * DELETE
+ * RP ise isteği DN master'a forward eder.
+ * DN ise 2 Phase Commit başlatır.
+ */
 router.get("/d", async (req, res) => {
   if (isRP(req)) {
     return handleRpForwarding(req, res);
@@ -180,28 +248,44 @@ router.get("/d", async (req, res) => {
 
   try {
     const { key } = req.query;
+    const currentServer = getCurrentServer(req);
+    const serverId = getCurrentServerId(req);
 
-    const result = fsCrud.deletePair(key);
+    const twoPcResult = await executeTwoPhaseCommit({
+      req,
+      operation: "delete",
+      key
+    });
+
+    const result = twoPcResult.result;
 
     commonRoutes.stats.delete++;
 
-    logger.info("DN delete operation completed", {
-      serverId: req.app.locals.currentServer.id,
+    logger.info("DN delete operation completed with 2PC", {
+      serverId,
       key,
-      DB_key: result.DB_key
+      DB_key: result.DB_key,
+      transactionId: twoPcResult.transactionId
     });
 
-    res.json(success({
-      ...result,
-      DN_id: req.app.locals.currentServer.dnId
-    }));
+    return res.json(
+      success({
+        ...result,
+        DN_id: currentServer.dnId,
+        transaction: {
+          id: twoPcResult.transactionId,
+          coordinator: twoPcResult.coordinator,
+          participants: twoPcResult.participants
+        }
+      })
+    );
   } catch (err) {
     logger.error("DN delete operation failed", {
-      serverId: req.app.locals.currentServer.id,
+      serverId: getCurrentServerId(req),
       message: err.message
     });
 
-    res.status(400).json(
+    return res.status(400).json(
       fail("eDBDELETE001", err.message)
     );
   }
