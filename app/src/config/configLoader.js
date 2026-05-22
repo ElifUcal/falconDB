@@ -34,14 +34,14 @@ function findServerById(config, serverId) {
   throw new Error(`Server with id '${serverId}' not found in configure.json`);
 }
 
+function getDataNodeById(config, dnId) {
+  return (config.dataNodes || []).find(
+    dataNode => Number(dataNode.id) === Number(dnId)
+  );
+}
+
 module.exports = {
   loadConfig,
-  findServerById
+  findServerById,
+  getDataNodeById
 };
-
-/*
-configure.json dosyasını okuyor
-SERVER_ID değerine bakıyor
-rp-0 mı, dn0-s1 mi, dn0-s2 mi buluyor
-server.js'e o server bilgisini veriyor
-*/

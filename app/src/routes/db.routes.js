@@ -5,8 +5,59 @@ const fsCrud = require("../modules/fsCrud");
 const { success, fail } = require("../modules/response");
 const logger = require("../modules/logger");
 const commonRoutes = require("./common.routes");
+const { forwardDbRequest } = require("../modules/rpProxy");
 
-router.post("/c", (req, res) => {
+function isRP(req) {
+  return req.app.locals.currentServer.type === "RP";
+}
+
+function isDN(req) {
+  return req.app.locals.currentServer.type === "DN";
+}
+
+async function handleRpForwarding(req, res) {
+  try {
+    const result = await forwardDbRequest(req, req.app.locals.config);
+
+    logger.info("RP forwarded DB request to DN master", {
+      originalUrl: req.originalUrl,
+      dnId: result.dnId,
+      master: result.master
+    });
+
+    res.json(result.responseData);
+  } catch (err) {
+    const dnStatus = err.response?.status;
+    const dnData = err.response?.data;
+
+    logger.error("RP forwarding failed", {
+      message: err.message,
+      originalUrl: req.originalUrl,
+      dnStatus,
+      dnData
+    });
+
+    if (dnData) {
+      return res.status(dnStatus || 502).json(dnData);
+    }
+
+    res.status(502).json(
+      fail("eRPFORWARD001", err.message)
+    );
+  }
+}
+
+router.post("/c", async (req, res) => {
+  if (isRP(req)) {
+    return handleRpForwarding(req, res);
+  }
+
+  if (!isDN(req)) {
+    return res.status(403).json(
+      fail("eDBCREATE403", "Only DN server can execute create operation")
+    );
+  }
+
   try {
     const { key, value } = req.body;
 
@@ -14,14 +65,19 @@ router.post("/c", (req, res) => {
 
     commonRoutes.stats.create++;
 
-    logger.info("DB create operation completed", {
+    logger.info("DN create operation completed", {
+      serverId: req.app.locals.currentServer.id,
       key,
       DB_key: result.DB_key
     });
 
-    res.json(success(result));
+    res.json(success({
+      ...result,
+      DN_id: req.app.locals.currentServer.dnId
+    }));
   } catch (err) {
-    logger.error("DB create operation failed", {
+    logger.error("DN create operation failed", {
+      serverId: req.app.locals.currentServer.id,
       message: err.message
     });
 
@@ -31,7 +87,17 @@ router.post("/c", (req, res) => {
   }
 });
 
-router.get("/r", (req, res) => {
+router.get("/r", async (req, res) => {
+  if (isRP(req)) {
+    return handleRpForwarding(req, res);
+  }
+
+  if (!isDN(req)) {
+    return res.status(403).json(
+      fail("eDBREAD403", "Only DN server can execute read operation")
+    );
+  }
+
   try {
     const { key } = req.query;
 
@@ -39,14 +105,19 @@ router.get("/r", (req, res) => {
 
     commonRoutes.stats.read++;
 
-    logger.info("DB read operation completed", {
+    logger.info("DN read operation completed", {
+      serverId: req.app.locals.currentServer.id,
       key,
       DB_key: result.DB_key
     });
 
-    res.json(success(result));
+    res.json(success({
+      ...result,
+      DN_id: req.app.locals.currentServer.dnId
+    }));
   } catch (err) {
-    logger.error("DB read operation failed", {
+    logger.error("DN read operation failed", {
+      serverId: req.app.locals.currentServer.id,
       message: err.message
     });
 
@@ -56,7 +127,17 @@ router.get("/r", (req, res) => {
   }
 });
 
-router.post("/u", (req, res) => {
+router.post("/u", async (req, res) => {
+  if (isRP(req)) {
+    return handleRpForwarding(req, res);
+  }
+
+  if (!isDN(req)) {
+    return res.status(403).json(
+      fail("eDBUPDATE403", "Only DN server can execute update operation")
+    );
+  }
+
   try {
     const { key, value } = req.body;
 
@@ -64,14 +145,19 @@ router.post("/u", (req, res) => {
 
     commonRoutes.stats.update++;
 
-    logger.info("DB update operation completed", {
+    logger.info("DN update operation completed", {
+      serverId: req.app.locals.currentServer.id,
       key,
       DB_key: result.DB_key
     });
 
-    res.json(success(result));
+    res.json(success({
+      ...result,
+      DN_id: req.app.locals.currentServer.dnId
+    }));
   } catch (err) {
-    logger.error("DB update operation failed", {
+    logger.error("DN update operation failed", {
+      serverId: req.app.locals.currentServer.id,
       message: err.message
     });
 
@@ -81,7 +167,17 @@ router.post("/u", (req, res) => {
   }
 });
 
-router.get("/d", (req, res) => {
+router.get("/d", async (req, res) => {
+  if (isRP(req)) {
+    return handleRpForwarding(req, res);
+  }
+
+  if (!isDN(req)) {
+    return res.status(403).json(
+      fail("eDBDELETE403", "Only DN server can execute delete operation")
+    );
+  }
+
   try {
     const { key } = req.query;
 
@@ -89,14 +185,19 @@ router.get("/d", (req, res) => {
 
     commonRoutes.stats.delete++;
 
-    logger.info("DB delete operation completed", {
+    logger.info("DN delete operation completed", {
+      serverId: req.app.locals.currentServer.id,
       key,
       DB_key: result.DB_key
     });
 
-    res.json(success(result));
+    res.json(success({
+      ...result,
+      DN_id: req.app.locals.currentServer.dnId
+    }));
   } catch (err) {
-    logger.error("DB delete operation failed", {
+    logger.error("DN delete operation failed", {
+      serverId: req.app.locals.currentServer.id,
       message: err.message
     });
 

@@ -1,14 +1,14 @@
 const express = require("express");
+const masterRegistry = require("./modules/masterRegistry");
 
 const { loadConfig, findServerById } = require("./config/configLoader");
 const logger = require("./modules/logger");
 const { fail } = require("./modules/response");
+
 const commonRoutes = require("./routes/common.routes");
 const dbRoutes = require("./routes/db.routes");
 
 const app = express();
-
-//ana giriş dosyamız bu
 
 app.use(express.json());
 
@@ -23,6 +23,17 @@ try {
 } catch (err) {
   console.error("Config loading failed:", err.message);
   process.exit(1);
+}
+
+app.locals.config = config;
+app.locals.currentServer = currentServer;
+
+if (currentServer.type === "RP") {
+  masterRegistry.initializeDefaultMasters(config);
+
+  logger.info("Default DN masters initialized", {
+    masters: masterRegistry.getAllMasters()
+  });
 }
 
 app.use("/", commonRoutes.router);
@@ -45,14 +56,11 @@ app.use((err, req, res, next) => {
   );
 });
 
-app.locals.config = config;
-app.locals.currentServer = currentServer;
-
 app.listen(currentServer.port, currentServer.host, () => {
   logger.info("falconDB server started", {
     id: currentServer.id,
     type: currentServer.type,
-    dnId: currentServer.dnId,
+    dnId: currentServer.dnId ?? null,
     host: currentServer.host,
     port: currentServer.port
   });
